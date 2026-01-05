@@ -42,9 +42,18 @@ async function checkWiki() {
       const latest = items[0];
       lastKey = latest.link + (latest.pubDate || "");
       initialized = true;
-      console.log("初期化完了（通知なし）");
+
+      const channel = await client.channels.fetch(CHANNEL_ID);
+
+      await channel.send(
+        "🔄 **Bloxd攻略 Wiki Botがアップデートされました**\n" +
+        "wikiの更新通知を再開します"
+      );
+
+      console.log("初期化完了（起動通知を送信）");
       return;
-    }
+      }
+
 
     const newItems = [];
     for (const item of items) {
