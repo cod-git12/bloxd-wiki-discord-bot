@@ -103,4 +103,6 @@ client.once("ready", () => {
   setInterval(checkWiki, CHECK_INTERVAL);
 });
 
+
+
 client.login(process.env.DISCORD_TOKEN);
