@@ -1,111 +1,93 @@
-// index.js
-const express = require("express");
-const app = express();
-const PORT = process.env.PORT || 3000;
-const fs = require("fs");
+const { Client, GatewayIntentBits } = require("discord.js")
+const Parser = require("rss-parser")
+const express = require("express")
 
-app.get("/", async (req, res) => {
-  res.send("Botは動いています！");
+/* ========= 設定 ========= */
 
-  // ここで RSS チェックを呼ぶ
-  await checkWiki();
-  console.log("UptimeRobot ping による RSS チェック実行");
-});
+// Discord
+const DISCORD_TOKEN = process.env.DISCORD_TOKEN
+const CHANNEL_ID = process.env.CHANNEL_ID
 
-app.listen(PORT, () => console.log(`Expressサーバーがポート${PORT}で起動`));
+// Wiki RSS
+const RSS_URL = "https://bloxd.wikiru.jp/?cmd=rss"
 
-require("dotenv").config();
-const { Client, GatewayIntentBits } = require("discord.js");
-const Parser = require("rss-parser");
+// 更新チェック間隔（ms）
+const CHECK_INTERVAL = 60 * 1000 // 1分
 
-const CHANNEL_ID = "1456599233711968387";
-const RSS_URL = "https://bloxd.wikiru.jp/?cmd=rss";
-const CHECK_INTERVAL = 60 * 1000; // 60秒ごと
+/* ======================= */
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-const parser = new Parser();
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds]
+})
 
-// 永続化用 JSON ファイル
-const DATA_FILE = "lastKeys.json";
-let lastKeys = [];
+const parser = new Parser()
+let lastGuid = null
 
-function loadLastKeys() {
-  if (fs.existsSync(DATA_FILE)) {
-    lastKeys = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-    console.log("通知履歴読み込み済み:", lastKeys);
-  }
-}
+/* ========= Webサーバー（Railway用） ========= */
 
-function saveLastKeys() {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(lastKeys));
-}
+const app = express()
+const PORT = process.env.PORT || 3000
 
-// RSSチェック関数
-async function checkWiki() {
-  console.log("RSSチェック中...");
+app.get("/", (req, res) => {
+  res.send("Bot is running.")
+})
+
+app.listen(PORT, () => {
+  console.log(`Web server running on port ${PORT}`)
+})
+
+/* ========= backupリンク生成 ========= */
+
+function makeBackupLink(pageLink) {
   try {
-    const feed = await parser.parseURL(RSS_URL);
-    if (!feed.items || feed.items.length === 0) {
-      console.log("RSSが空");
-      return;
-    }
-
-    // 新しい順にチェック
-    for (const item of feed.items) {
-      const title = item.title;
-      const link = item.link;
-      const time = item.pubDate || item.content || item.description;
-      if (!link) continue;
-
-      const key = `${link}|${time}`;
-
-      // 既に送信済みならスキップ
-      if (lastKeys.includes(key)) continue;
-
-      try {
-        const channel = await client.channels.fetch(CHANNEL_ID);
-        if (title.includes("コメント") || title === "メニューコメント！") {
-          await channel.send(
-            `Bloxd攻略 Wikiで新着コメントがありました\n` +
-              `ページ名： ${title}\n` +
-              `時間： ${time}\n` +
-              `リンク： ${link}`
-          );
-          console.log("コメント通知:", title);
-        } else {
-          await channel.send(
-            `Bloxd攻略 Wikiで更新がありました\n` +
-              `ページ名： ${title}\n` +
-              `時間： ${time}\n` +
-              `リンク： ${link}`
-          );
-          console.log("更新通知:", title);
-        }
-
-        // 送信済み履歴に追加（新しい順）
-        lastKeys.unshift(key);
-        if (lastKeys.length > 100) lastKeys.pop(); // 直近100件だけ保持
-        saveLastKeys();
-
-      } catch (err) {
-        console.error("チャンネル送信エラー:", err);
-      }
-    }
-
-  } catch (err) {
-    console.error("RSSエラー:", err);
+    const url = new URL(pageLink)
+    const pageName = url.search.slice(1) // ?以降
+    return `https://bloxd.wikiru.jp/?cmd=backup&page=${pageName}`
+  } catch {
+    return null
   }
 }
+
+/* ========= RSSチェック ========= */
+
+async function checkWiki() {
+  try {
+    const feed = await parser.parseURL(RSS_URL)
+    if (!feed.items.length) return
+
+    const item = feed.items[0]
+
+    if (item.guid === lastGuid) return
+    lastGuid = item.guid
+
+    const title = item.title ?? "（タイトル不明）"
+    const link = item.link
+    const time = new Date(item.pubDate).toLocaleString("ja-JP")
+
+    const backupLink = makeBackupLink(link)
+
+    const channel = await client.channels.fetch(CHANNEL_ID)
+
+    await channel.send(
+      `📘 **Bloxd攻略 Wiki 更新通知**\n` +
+      `ページ： **${title}**\n` +
+      `更新時刻： ${time}\n` +
+      `ページURL： ${link}\n` +
+      (backupLink ? `　　　　${backupLink}` : "")
+    )
+
+    console.log("Wiki updated:", title)
+  } catch (err) {
+    console.error("RSS error:", err)
+  }
+}
+
+/* ========= Discordログイン ========= */
 
 client.once("ready", () => {
-  console.log(`ログイン成功: ${client.user.tag}`);
-  loadLastKeys();
+  console.log(`Logged in as ${client.user.tag}`)
+  checkWiki()
+  setInterval(checkWiki, CHECK_INTERVAL)
+})
 
-  // 起動時は UptimeRobot ping を想定してまとめ送信
-  checkWiki();
-
-  // 自動チェック（60秒ごと）
-  setInterval(checkWiki, CHECK_INTERVAL);
-});
-
-client.login(process.env.DISCORD_TOKEN);
+client.login(DISCORD_TOKEN)
