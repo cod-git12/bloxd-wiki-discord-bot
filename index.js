@@ -1,93 +1,72 @@
-const { Client, GatewayIntentBits } = require("discord.js")
-const Parser = require("rss-parser")
-const express = require("express")
-
-/* ========= 設定 ========= */
-
-// Discord
-const DISCORD_TOKEN = process.env.DISCORD_TOKEN
-const CHANNEL_ID = process.env.CHANNEL_ID
-
-// Wiki RSS
-const RSS_URL = "https://bloxd.wikiru.jp/?cmd=rss"
-
-// 更新チェック間隔（ms）
-const CHECK_INTERVAL = 60 * 1000 // 1分
-
-/* ======================= */
-
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
-})
-
-const parser = new Parser()
-let lastGuid = null
-
-/* ========= Webサーバー（Railway用） ========= */
-
-const app = express()
-const PORT = process.env.PORT || 3000
-
-app.get("/", (req, res) => {
-  res.send("Bot is running.")
-})
-
-app.listen(PORT, () => {
-  console.log(`Web server running on port ${PORT}`)
-})
-
-/* ========= backupリンク生成 ========= */
-
-function makeBackupLink(pageLink) {
-  try {
-    const url = new URL(pageLink)
-    const pageName = url.search.slice(1) // ?以降
-    return `https://bloxd.wikiru.jp/?cmd=backup&page=${pageName}`
-  } catch {
-    return null
-  }
-}
-
-/* ========= RSSチェック ========= */
-
 async function checkWiki() {
+  console.log("RSSチェック中...");
+
   try {
-    const feed = await parser.parseURL(RSS_URL)
-    if (!feed.items.length) return
+    const feed = await parser.parseURL(RSS_URL);
+    if (!feed.items || feed.items.length === 0) return;
 
-    const item = feed.items[0]
+    const items = feed.items; // 新しい順（RSSそのまま）
 
-    if (item.guid === lastGuid) return
-    lastGuid = item.guid
+    // 初回起動：最新だけ記録して終了
+    if (!initialized) {
+      const latest = items[0];
+      lastKey = latest.link + (latest.pubDate || "");
+      initialized = true;
+      console.log("初期化完了（通知なし）");
+      return;
+    }
 
-    const title = item.title ?? "（タイトル不明）"
-    const link = item.link
-    const time = new Date(item.pubDate).toLocaleString("ja-JP")
+    // 新しいものだけ抽出
+    const newItems = [];
+    for (const item of items) {
+      const key = item.link + (item.pubDate || "");
+      if (key === lastKey) break;
+      newItems.push(item);
+    }
 
-    const backupLink = makeBackupLink(link)
+    const channel = await client.channels.fetch(CHANNEL_ID);
 
-    const channel = await client.channels.fetch(CHANNEL_ID)
+    // 古い → 新しい順で送信
+    for (let i = newItems.length - 1; i >= 0; i--) {
+      const item = newItems[i];
+      const title = item.title;
+      const link = item.link;
+      const time = item.pubDate || item.content || item.description;
 
-    await channel.send(
-      `📘 **Bloxd攻略 Wiki 更新通知**\n` +
-      `ページ： **${title}**\n` +
-      `更新時刻： ${time}\n` +
-      `ページURL： ${link}\n` +
-      (backupLink ? `　　　　${backupLink}` : "")
-    )
+      // ★ backupリンク生成
+      let backupLink = "";
+      try {
+        const url = new URL(link);
+        const pageName = url.search.slice(1); // ?以降
+        backupLink = `https://bloxd.wikiru.jp/?cmd=backup&page=${pageName}`;
+      } catch {
+        backupLink = "（履歴リンク生成失敗）";
+      }
 
-    console.log("Wiki updated:", title)
+      if (title.includes("コメント") || title === "メニューコメント！") {
+        await channel.send(
+          `**Bloxd攻略 Wiki に新着コメントがありました**\n` +
+          `ページ名： ${title}\n` +
+          `時間： ${time}\n` +
+          `ページURL： ${link}\n` +
+          `　　　　　　 ${backupLink}`
+        );
+      } else {
+        await channel.send(
+          `**Bloxd攻略 Wikiで更新がありました**\n` +
+          `ページ名： ${title}\n` +
+          `時間： ${time}\n` +
+          `ページURL： ${link}\n` +
+          `　　　　　　 ${backupLink}`
+        );
+      }
+    }
+
+    // 最新を保存
+    const newest = items[0];
+    lastKey = newest.link + (newest.pubDate || "");
+
   } catch (err) {
-    console.error("RSS error:", err)
+    console.error("RSSエラー:", err);
   }
 }
-
-/* ========= Discordログイン ========= */
-
-client.once("ready", () => {
-  console.log(`Logged in as ${client.user.tag}`)
-  checkWiki()
-  setInterval(checkWiki, CHECK_INTERVAL)
-})
-
-client.login(DISCORD_TOKEN)
