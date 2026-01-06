@@ -28,7 +28,7 @@ app.listen(PORT, () => {
   console.log(`Expressサーバーがポート${PORT}で起動`);
 });
 
-// ===== RSSチェック本体（あなたのコード）=====
+// ===== RSSチェック本体 =====
 async function checkWiki() {
   console.log("RSSチェック中...");
 
@@ -36,79 +36,59 @@ async function checkWiki() {
     const feed = await parser.parseURL(RSS_URL);
     if (!feed.items || feed.items.length === 0) return;
 
-    const items = feed.items; // 新しい順
+    // ★ 一番上（最新のみ）
+    const item = feed.items[0];
 
+    const title = item.title;
+    const link = item.link;
+    const time =
+      item.pubDate ||
+      item.description ||
+      "";
+
+    const key = `${title}|${time}`;
+
+    // ===== 初期起動 =====
     if (!initialized) {
-      const latest = items[0];
-      lastKey = latest.link + (latest.pubDate || "");
+      lastKey = key;
       initialized = true;
 
       const channel = await client.channels.fetch(CHANNEL_ID);
-
       await channel.send(
         "🔄 **Bloxd攻略 Wiki Botがアップデートされました**\n" +
         "wikiの更新通知を再開します"
       );
 
-      console.log("初期化完了（起動通知を送信）");
+      console.log("初期化完了（起動通知送信）");
       return;
-      }
-
-
-    const newItems = [];
-      for (const item of items) {
-        const timeKey =
-          item.pubDate ||
-          item.isoDate ||
-          item.description || "";
-
-        const key = item.link + timeKey;
-
-        if (key === lastKey) break;
-        newItems.push(item);
-      }
-
-
-    const channel = await client.channels.fetch(CHANNEL_ID);
-
-    for (let i = newItems.length - 1; i >= 0; i--) {
-      const item = newItems[i];
-      const title = item.title;
-      const link = item.link;
-      const time = item.pubDate || item.content || item.description;
-/*
-      let backupLink = "";
-      try {
-        const url = new URL(link);
-        const pageName = url.search.slice(1);
-        backupLink = `https://bloxd.wikiru.jp/?cmd=backup&page=${pageName}`;
-      } catch {
-        backupLink = "（履歴リンク生成失敗）";
-      }
-      */
-
-      await channel.send(
-        `**Bloxd攻略 Wikiで更新がありました**\n` +
-        `ページ名： ${title}\n` +
-        `時間： ${time}\n` +
-        `ページURL： ${link}\n` /*+
-        `　　　　　　 ${backupLink}`*/
-      );
     }
 
-    const newest = items[0];
-    const newestTime =
-      newest.pubDate ||
-      newest.isoDate ||
-      newest.description || "";
+    // ===== 変化なし =====
+    if (key === lastKey) {
+      console.log("変化なし");
+      return;
+    }
 
-    lastKey = newest.link + newestTime;
+    // ===== 更新あり =====
+    const channel = await client.channels.fetch(CHANNEL_ID);
 
+    await channel.send(
+      `**Bloxd攻略 Wikiで更新がありました**\n` +
+      `ページ名： ${title}\n` +
+      `時間： ${time}\n` +
+      `ページURL： ${link}`
+    );
+
+    // ★ 通知後に保存
+    lastKey = key;
+
+    console.log("更新通知送信完了");
 
   } catch (err) {
     console.error("RSSエラー:", err);
   }
 }
+
 
 // ===== Discord 起動 =====
 client.once("ready", () => {
