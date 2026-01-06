@@ -56,11 +56,18 @@ async function checkWiki() {
 
 
     const newItems = [];
-    for (const item of items) {
-      const key = item.link + (item.pubDate || "");
-      if (key === lastKey) break;
-      newItems.push(item);
-    }
+      for (const item of items) {
+        const timeKey =
+          item.pubDate ||
+          item.isoDate ||
+          item.description || "";
+
+        const key = item.link + timeKey;
+
+        if (key === lastKey) break;
+        newItems.push(item);
+      }
+
 
     const channel = await client.channels.fetch(CHANNEL_ID);
 
@@ -69,7 +76,7 @@ async function checkWiki() {
       const title = item.title;
       const link = item.link;
       const time = item.pubDate || item.content || item.description;
-
+/*
       let backupLink = "";
       try {
         const url = new URL(link);
@@ -78,18 +85,25 @@ async function checkWiki() {
       } catch {
         backupLink = "（履歴リンク生成失敗）";
       }
+      */
 
       await channel.send(
         `**Bloxd攻略 Wikiで更新がありました**\n` +
         `ページ名： ${title}\n` +
         `時間： ${time}\n` +
-        `ページURL： ${link}\n` +
-        `　　　　　　 ${backupLink}`
+        `ページURL： ${link}\n` /*+
+        `　　　　　　 ${backupLink}`*/
       );
     }
 
     const newest = items[0];
-    lastKey = newest.link + (newest.pubDate || "");
+    const newestTime =
+      newest.pubDate ||
+      newest.isoDate ||
+      newest.description || "";
+
+    lastKey = newest.link + newestTime;
+
 
   } catch (err) {
     console.error("RSSエラー:", err);
