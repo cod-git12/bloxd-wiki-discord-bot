@@ -41,10 +41,7 @@ async function checkWiki() {
 
     const title = item.title;
     const link = item.link;
-    const time =
-      item.pubDate ||
-      item.description ||
-      "";
+    const time = item.description;
 
     const key = `${title}|${time}`;
 
