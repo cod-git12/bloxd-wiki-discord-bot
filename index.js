@@ -88,6 +88,8 @@ async function checkWiki() {
 
       const key = `${item.title}|${item.link}|${timeStr}`;
 
+      /*
+      
       console.log(`[ITEM ${idx}]`, {
         title: item.title,
         link: item.link,
@@ -95,6 +97,8 @@ async function checkWiki() {
         time,
         key,
       });
+      
+      */
 
       return {
         title: item.title,
@@ -127,7 +131,7 @@ async function checkWiki() {
     const newItems = [];
 
     for (const item of items) {
-      console.log("[COMPARE]", item.key);
+      //console.log("[COMPARE]", item.key);
 
       if (item.key === lastKey) {
         console.log("[MATCH] ここで停止");
@@ -149,7 +153,7 @@ async function checkWiki() {
     const channel = await client.channels.fetch(CHANNEL_ID);
 
     for (const item of newItems) {
-      console.log("[SEND]", item.title, item.timeStr);
+      //console.log("[SEND]", item.title, item.timeStr);
 
       await channel.send(
         `**Bloxd攻略 Wikiで更新がありました**\n` +
