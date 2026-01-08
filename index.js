@@ -118,8 +118,8 @@ async function checkWiki() {
 
       const channel = await client.channels.fetch(CHANNEL_ID);
       await channel.send(
-        "🔄 **Bloxd攻略 Wiki Botが起動しました**\n" +
-        "wikiの更新通知を開始します"
+        "🔄 **Bloxd攻略 Wiki Botがアップデートされました**\n" +
+        "wikiの更新通知を再開します"
       );
 
       return;
@@ -159,7 +159,7 @@ async function checkWiki() {
         `**Bloxd攻略 Wikiで更新がありました**\n` +
         `ページ名： ${item.title}\n` +
         `時間： ${item.timeStr}\n` +
-        `ページURL： ${item.link}`
+        `ページリンク： ${item.link}`
       );
     }
 
