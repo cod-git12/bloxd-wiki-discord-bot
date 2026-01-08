@@ -34,17 +34,16 @@ app.listen(PORT, () => {
 
 // ==================== JST 時刻パース ====================
 function parseWikiTime(str) {
-  if (!str) return NaN;
+  if (!str) return null;
 
   console.log("[PARSE INPUT]", str);
 
-  // 例: Thu, 08 Jan 2026 20:06:46 JST
   const m = str.match(
     /(\d{2}) (\w{3}) (\d{4}) (\d{2}):(\d{2}):(\d{2})/
   );
   if (!m) {
     console.log("[PARSE FAIL]");
-    return NaN;
+    return null;
   }
 
   const [, dd, mon, yyyy, hh, mm, ss] = m;
@@ -59,7 +58,7 @@ function parseWikiTime(str) {
     Number(yyyy),
     months[mon],
     Number(dd),
-    Number(hh) - 9, // JST → UTC
+    Number(hh) - 9,
     Number(mm),
     Number(ss)
   );
@@ -79,18 +78,15 @@ async function checkWiki() {
       console.log("[RSS] items が空");
       return;
     }
-    const item = feed.items[0];
-    console.log("[ITEM RAW]", item);
-
 
     console.log(`[RSS] items count = ${feed.items.length}`);
 
     // ===== items 正規化 =====
     const items = feed.items.map((item, idx) => {
-      const timeStr = item.description;
+      const timeStr = item.content || item.contentSnippet || "";
       const time = parseWikiTime(timeStr);
 
-      const key = `${item.title}|${item.link}|${time}`;
+      const key = `${item.title}|${item.link}|${timeStr}`;
 
       console.log(`[ITEM ${idx}]`, {
         title: item.title,
@@ -111,19 +107,17 @@ async function checkWiki() {
 
     // ===== 初期起動 =====
     if (!initialized) {
-      const newest = items[0];
-      lastKey = newest.key;
+      lastKey = items[0].key;
       initialized = true;
 
       console.log("[INIT] lastKey =", lastKey);
 
       const channel = await client.channels.fetch(CHANNEL_ID);
       await channel.send(
-        "🔄 **Bloxd攻略 Wiki Botがアップデートされました**\n" +
-        "wikiの更新通知を再開します"
+        "🔄 **Bloxd攻略 Wiki Botが起動しました**\n" +
+        "wikiの更新通知を開始します"
       );
 
-      console.log("[INIT] 起動通知送信");
       return;
     }
 
@@ -131,6 +125,7 @@ async function checkWiki() {
 
     // ===== 新規アイテム抽出 =====
     const newItems = [];
+
     for (const item of items) {
       console.log("[COMPARE]", item.key);
 
