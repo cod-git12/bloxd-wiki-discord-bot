@@ -19,35 +19,72 @@ const parser = new Parser();
 let lastKey = null;
 let initialized = false;
 
-// ===== Express（Uptime / Railway用）=====
+// ===== Express（Railway / Uptime）=====
 app.get("/", (req, res) => {
   res.send("Botは動いています！");
 });
 
 app.listen(PORT, () => {
-  console.log(`Expressサーバーがポート${PORT}で起動`);
+  console.log(`[EXPRESS] ポート ${PORT} で起動`);
 });
+
+// ===== JST文字列 → timestamp =====
+function parseWikiTime(str) {
+  if (!str) return NaN;
+  const t = Date.parse(str.replace("JST", "+0900"));
+  console.log(`[TIME PARSE] "${str}" → ${t}`);
+  return t;
+}
 
 // ===== RSSチェック本体 =====
 async function checkWiki() {
-  console.log("RSSチェック中...");
+  console.log("\n==============================");
+  console.log("[CHECK] RSSチェック開始");
 
   try {
     const feed = await parser.parseURL(RSS_URL);
-    if (!feed.items || feed.items.length === 0) return;
 
-    // items は「新しい → 古い」
-    const items = feed.items;
+    console.log(`[RSS] item数: ${feed.items?.length ?? 0}`);
+
+    if (!feed.items || feed.items.length === 0) {
+      console.log("[RSS] itemなし");
+      return;
+    }
+
+    // 正規化
+    const items = feed.items
+      .map(item => {
+        const timeStr = item.description;
+        const time = parseWikiTime(timeStr);
+
+        const obj = {
+          title: item.title,
+          link: item.link,
+          timeStr,
+          time,
+          key: `${item.link}|${time}`,
+        };
+
+        console.log("[ITEM]", obj);
+        return obj;
+      })
+      .filter(item => !isNaN(item.time))
+      .sort((a, b) => b.time - a.time);
+
+    console.log(`[SORT] 有効item数: ${items.length}`);
+
+    if (items.length === 0) {
+      console.log("[SORT] 有効itemなし");
+      return;
+    }
 
     // ===== 初期起動 =====
-    if (!lastKey) {
-      const latest = items[0];
-      const initTime = Date.parse(latest.description);
+    if (!initialized) {
+      lastKey = items[0].key;
+      initialized = true;
 
-      lastKey = {
-        time: initTime,
-        title: latest.title
-      };
+      console.log("[INIT] 初期化");
+      console.log("[INIT] lastKey =", lastKey);
 
       const channel = await client.channels.fetch(CHANNEL_ID);
       await channel.send(
@@ -55,70 +92,60 @@ async function checkWiki() {
         "wikiの更新通知を再開します"
       );
 
-      console.log("初期化完了");
       return;
     }
 
-    // ===== 新規更新を全部拾う =====
+    console.log("[STATE] lastKey =", lastKey);
+
+    // ===== 差分抽出 =====
     const newItems = [];
 
     for (const item of items) {
-      const time = Date.parse(item.description);
-      if (isNaN(time)) continue;
-
-      if (
-        time > lastKey.time ||
-        (time === lastKey.time && item.title !== lastKey.title)
-      ) {
-        newItems.push({
-          title: item.title,
-          link: item.link,
-          time
-        });
+      console.log(`[COMPARE] ${item.key}`);
+      if (item.key === lastKey) {
+        console.log("[MATCH] lastKey に到達 → break");
+        break;
       }
+      newItems.push(item);
     }
 
+    console.log(`[DIFF] 新規 ${newItems.length} 件`);
+
     if (newItems.length === 0) {
-      console.log("変化なし");
+      console.log("[RESULT] 変化なし");
       return;
     }
 
-    // ===== 古い → 新しい順 =====
-    newItems.reverse();
-
     const channel = await client.channels.fetch(CHANNEL_ID);
 
-    for (const item of newItems) {
+    // 古い → 新しい順で送信
+    for (let i = newItems.length - 1; i >= 0; i--) {
+      const item = newItems[i];
+
+      console.log("[SEND]", item.title, item.timeStr);
+
       await channel.send(
         `**Bloxd攻略 Wikiで更新がありました**\n` +
         `ページ名： ${item.title}\n` +
-        `時間： ${new Date(item.time).toLocaleString("ja-JP")}\n` +
+        `時間： ${item.timeStr}\n` +
         `ページURL： ${item.link}`
       );
     }
 
-    // ===== lastKey 更新 =====
-    const last = newItems[newItems.length - 1];
-    lastKey = {
-      time: last.time,
-      title: last.title
-    };
-
-    console.log(`${newItems.length}件の更新を送信`);
+    // 最新を保存
+    lastKey = items[0].key;
+    console.log("[UPDATE] lastKey 更新 →", lastKey);
 
   } catch (err) {
-    console.error("RSSエラー:", err);
+    console.error("[ERROR] RSSエラー", err);
   }
 }
 
-
 // ===== Discord 起動 =====
 client.once("ready", () => {
-  console.log(`ログイン成功: ${client.user.tag}`);
+  console.log(`[DISCORD] ログイン成功: ${client.user.tag}`);
   checkWiki();
   setInterval(checkWiki, CHECK_INTERVAL);
 });
-
-
 
 client.login(process.env.DISCORD_TOKEN);
