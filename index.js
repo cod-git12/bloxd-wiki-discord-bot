@@ -70,7 +70,6 @@ function parseWikiTime(str) {
 
 // ==================== RSS チェック本体 ====================
 async function checkWiki() {
-  console.log("[ITEM RAW]", item);
 
   console.log("\n========== RSS CHECK START ==========");
 
@@ -80,6 +79,9 @@ async function checkWiki() {
       console.log("[RSS] items が空");
       return;
     }
+    const item = feed.items[0];
+    console.log("[ITEM RAW]", item);
+
 
     console.log(`[RSS] items count = ${feed.items.length}`);
 
