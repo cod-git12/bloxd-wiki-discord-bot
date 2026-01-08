@@ -41,9 +41,11 @@ async function checkWiki() {
 
     const title = item.title;
     const link = item.link;
-    const time = item.description;
+    const time = item.pubDate ||
+                 item.description ||
+                 "時刻の特定に失敗";
 
-    const key = `${title}|${time}`;
+    const key = `${title}|${link}|${time}`;
 
     // ===== 初期起動 =====
     if (!initialized) {
