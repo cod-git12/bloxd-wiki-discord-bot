@@ -70,6 +70,8 @@ function parseWikiTime(str) {
 
 // ==================== RSS チェック本体 ====================
 async function checkWiki() {
+  console.log("[ITEM RAW]", item);
+
   console.log("\n========== RSS CHECK START ==========");
 
   try {
