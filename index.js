@@ -36,21 +36,18 @@ async function checkWiki() {
     const feed = await parser.parseURL(RSS_URL);
     if (!feed.items || feed.items.length === 0) return;
 
-    // ★ 一番上（最新のみ）
-    const item = feed.items[0];
-
-    const title = item.title;
-    const link = item.link;
-    const time = item.pubDate ||
-                 item.description ||
-                 "時刻の特定に失敗";
-
-    const key = `${title}|${link}|${time}`;
+    // items は「新しい → 古い」
+    const items = feed.items;
 
     // ===== 初期起動 =====
-    if (!initialized) {
-      lastKey = key;
-      initialized = true;
+    if (!lastKey) {
+      const latest = items[0];
+      const initTime = Date.parse(latest.description);
+
+      lastKey = {
+        time: initTime,
+        title: latest.title
+      };
 
       const channel = await client.channels.fetch(CHANNEL_ID);
       await channel.send(
@@ -58,30 +55,56 @@ async function checkWiki() {
         "wikiの更新通知を再開します"
       );
 
-      console.log("初期化完了（起動通知送信）");
+      console.log("初期化完了");
       return;
     }
 
-    // ===== 変化なし =====
-    if (key === lastKey) {
+    // ===== 新規更新を全部拾う =====
+    const newItems = [];
+
+    for (const item of items) {
+      const time = Date.parse(item.description);
+      if (isNaN(time)) continue;
+
+      if (
+        time > lastKey.time ||
+        (time === lastKey.time && item.title !== lastKey.title)
+      ) {
+        newItems.push({
+          title: item.title,
+          link: item.link,
+          time
+        });
+      }
+    }
+
+    if (newItems.length === 0) {
       console.log("変化なし");
       return;
     }
 
-    // ===== 更新あり =====
+    // ===== 古い → 新しい順 =====
+    newItems.reverse();
+
     const channel = await client.channels.fetch(CHANNEL_ID);
 
-    await channel.send(
-      `**Bloxd攻略 Wikiで更新がありました**\n` +
-      `ページ名： ${title}\n` +
-      `時間： ${time}\n` +
-      `ページURL： ${link}`
-    );
+    for (const item of newItems) {
+      await channel.send(
+        `**Bloxd攻略 Wikiで更新がありました**\n` +
+        `ページ名： ${item.title}\n` +
+        `時間： ${new Date(item.time).toLocaleString("ja-JP")}\n` +
+        `ページURL： ${item.link}`
+      );
+    }
 
-    // ★ 通知後に保存
-    lastKey = key;
+    // ===== lastKey 更新 =====
+    const last = newItems[newItems.length - 1];
+    lastKey = {
+      time: last.time,
+      title: last.title
+    };
 
-    console.log("更新通知送信完了");
+    console.log(`${newItems.length}件の更新を送信`);
 
   } catch (err) {
     console.error("RSSエラー:", err);
