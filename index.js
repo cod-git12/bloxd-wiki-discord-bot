@@ -58,6 +58,13 @@ async function checkWiki() {
     if (!initialized) {
       lastKey = key;
       initialized = true;
+      
+      const channel = await client.channels.fetch(CHANNEL_ID);
+      await channel.send(
+        "🔄 **Bloxd攻略 Wiki Botがアップデートされました**\n" +
+        "wikiの更新通知を再開します"
+      );
+  
       console.log("[INIT] 初期化完了（通知なし）");
       return;
     }
