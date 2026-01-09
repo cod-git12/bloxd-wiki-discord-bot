@@ -32,45 +32,9 @@ app.listen(PORT, () => {
   console.log(`[EXPRESS] ポート ${PORT} で起動`);
 });
 
-// ==================== JST 時刻パース ====================
-function parseWikiTime(str) {
-  if (!str) return null;
-
-  console.log("[PARSE INPUT]", str);
-
-  const m = str.match(
-    /(\d{2}) (\w{3}) (\d{4}) (\d{2}):(\d{2}):(\d{2})/
-  );
-  if (!m) {
-    console.log("[PARSE FAIL]");
-    return null;
-  }
-
-  const [, dd, mon, yyyy, hh, mm, ss] = m;
-
-  const months = {
-    Jan: 0, Feb: 1, Mar: 2, Apr: 3,
-    May: 4, Jun: 5, Jul: 6, Aug: 7,
-    Sep: 8, Oct: 9, Nov: 10, Dec: 11,
-  };
-
-  const time = Date.UTC(
-    Number(yyyy),
-    months[mon],
-    Number(dd),
-    Number(hh) - 9,
-    Number(mm),
-    Number(ss)
-  );
-
-  console.log("[PARSE OK]", time);
-  return time;
-}
-
 // ==================== RSS チェック本体 ====================
 async function checkWiki() {
-
-  console.log("\n========== RSS CHECK START ==========");
+  console.log("\n========== RSS CHECK ==========");
 
   try {
     const feed = await parser.parseURL(RSS_URL);
@@ -79,99 +43,47 @@ async function checkWiki() {
       return;
     }
 
-    console.log(`[RSS] items count = ${feed.items.length}`);
+    // ★ 最新1件のみ
+    const item = feed.items[0];
 
-    // ===== items 正規化 =====
-    const items = feed.items.map((item, idx) => {
-      const timeStr = item.content || item.contentSnippet || "";
-      const time = parseWikiTime(timeStr);
+    const title = item.title;
+    const link = item.link;
+    const timeStr = item.content || item.contentSnippet || "";
 
-      const key = `${item.title}|${item.link}|${timeStr}`;
+    const key = `${title}|${link}|${timeStr}`;
 
-      /*
-      
-      console.log(`[ITEM ${idx}]`, {
-        title: item.title,
-        link: item.link,
-        timeStr,
-        time,
-        key,
-      });
-      
-      */
+    console.log("[LATEST KEY]", key);
 
-      return {
-        title: item.title,
-        link: item.link,
-        timeStr,
-        time,
-        key,
-      };
-    });
-
-    // ===== 初期起動 =====
+    // ===== 初回起動：保存のみ（通知しない）=====
     if (!initialized) {
-      lastKey = items[0].key;
+      lastKey = key;
       initialized = true;
-
-      console.log("[INIT] lastKey =", lastKey);
-
-      const channel = await client.channels.fetch(CHANNEL_ID);
-      await channel.send(
-        "🔄 **Bloxd攻略 Wiki Botがアップデートされました**\n" +
-        "wikiの更新通知を再開します"
-      );
-
+      console.log("[INIT] 初期化完了（通知なし）");
       return;
     }
 
-    console.log("[COMPARE] lastKey =", lastKey);
-
-    // ===== 新規アイテム抽出 =====
-    const newItems = [];
-
-    for (const item of items) {
-      //console.log("[COMPARE]", item.key);
-
-      if (item.key === lastKey) {
-        console.log("[MATCH] ここで停止");
-        break;
-      }
-
-      console.log("[DIFF] 新規検出");
-      newItems.push(item);
-    }
-
-    if (newItems.length === 0) {
-      console.log("[RESULT] 変化なし");
+    // ===== 変化なし =====
+    if (key === lastKey) {
+      console.log("[NO CHANGE]");
       return;
     }
 
-    // ===== 古い → 新しい順 =====
-    newItems.reverse();
-
+    // ===== 更新あり =====
     const channel = await client.channels.fetch(CHANNEL_ID);
 
-    for (const item of newItems) {
-      //console.log("[SEND]", item.title, item.timeStr);
+    await channel.send(
+      `**Bloxd攻略 Wikiで更新がありました**\n` +
+      `ページ名： ${title}\n` +
+      `時間： ${timeStr}\n` +
+      `ページリンク： ${link}`
+    );
 
-      await channel.send(
-        `**Bloxd攻略 Wikiで更新がありました**\n` +
-        `ページ名： ${item.title}\n` +
-        `時間： ${item.timeStr}\n` +
-        `ページリンク： ${item.link}`
-      );
-    }
-
-    // ===== 最新を保存 =====
-    lastKey = items[0].key;
-    console.log("[UPDATE] lastKey 更新 =", lastKey);
+    lastKey = key;
+    console.log("[SEND] 更新通知送信");
 
   } catch (err) {
     console.error("[RSS ERROR]", err);
   }
-
-  console.log("========== RSS CHECK END ==========\n");
 }
 
 // ==================== Discord 起動 ====================
