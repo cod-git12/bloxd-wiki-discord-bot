@@ -10,6 +10,7 @@ const PORT = process.env.PORT || 3000;
 const CHANNEL_ID = process.env.CHANNEL_ID;
 const RSS_URL = "https://bloxd.wikiru.jp/?cmd=rss";
 const CHECK_INTERVAL = 60 * 1000;
+const ROLE_ID = "1460204517860839558";
 
 // ==================== Discord ====================
 const client = new Client({
@@ -78,13 +79,16 @@ async function checkWiki() {
     // ===== 更新あり =====
     const channel = await client.channels.fetch(CHANNEL_ID);
 
-    await channel.send(
-      `@📢wiki更新通知` +
-      `**Bloxd攻略 Wikiで更新がありました**\n` +
-      `ページ名： ${title}\n` +
-      `時間： ${timeStr}\n` +
-      `ページリンク： ${link}`
-    );
+    await channel.send({
+      content:
+        `<@&${ROLE_ID}>\n` +
+        `**Bloxd攻略 Wikiで更新がありました**\n` +
+        `ページ名： ${title}\n` +
+        `時間： ${timeStr}\n` +
+        `ページリンク： ${link}`,
+      allowedMentions: { roles: [ROLE_ID] }
+    });
+
 
     lastKey = key;
     console.log("[SEND] 更新通知送信");
