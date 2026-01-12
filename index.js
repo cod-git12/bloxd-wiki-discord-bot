@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3000;
 const CHANNEL_ID = process.env.CHANNEL_ID;
 const RSS_URL = "https://bloxd.wikiru.jp/?cmd=rss";
 const CHECK_INTERVAL = 60 * 1000;
-const ROLE_ID = "1460204517860839558";
+const ROLE_ID = "1460203778111443130";
 
 // ==================== Discord ====================
 const client = new Client({
