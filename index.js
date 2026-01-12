@@ -79,6 +79,7 @@ async function checkWiki() {
     const channel = await client.channels.fetch(CHANNEL_ID);
 
     await channel.send(
+      `@📢wiki更新通知` +
       `**Bloxd攻略 Wikiで更新がありました**\n` +
       `ページ名： ${title}\n` +
       `時間： ${timeStr}\n` +
