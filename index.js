@@ -7,7 +7,7 @@ const Parser = require("rss-parser");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const CHANNEL_ID = process.env.CHANNEL_ID;
+const CHANNEL_ID = "1456599233711968387";
 const RSS_URL = "https://bloxd.wikiru.jp/?cmd=rss";
 const CHECK_INTERVAL = 60 * 1000;
 const ROLE_ID = "1460203778111443130";
@@ -105,4 +105,4 @@ client.once("ready", () => {
   setInterval(checkWiki, CHECK_INTERVAL);
 });
 
-client.login(process.env.DISCORD_TOKEN);
+client.login(process.env.UPD_DISCORD_TOKEN);
