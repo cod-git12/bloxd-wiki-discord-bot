@@ -84,13 +84,15 @@ async function checkWiki() {
       content:
         `<@&${ROLE_ID}>\n` +
         `**Bloxd攻略 Wikiで更新がありました**\n` +
-        `ページ名： \`${title}\`\n` +
+        //`ページ名： \`${title}\`\n` +
+        `ページ名： ${title}\n` +
         `時間： ${timeStr}\n` +
         `ページリンク： ${link}`,
       allowedMentions: { roles: [ROLE_ID] }
     });
 
     // ==================== テスト用 Embed ====================
+    /*
     const embedChannel = await client.channels.fetch(TEST_EMBED_CHANNEL_ID);
 
     await embedChannel.send({
@@ -112,6 +114,7 @@ async function checkWiki() {
         }
       ]
     });
+    */
 
     lastKey = key;
     console.log("[SEND] 通常＋Embed 通知送信");
