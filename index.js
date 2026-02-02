@@ -84,7 +84,7 @@ async function checkWiki() {
       content:
         `<@&${ROLE_ID}>\n` +
         `**Bloxd攻略 Wikiで更新がありました**\n` +
-        `ページ名： ${title}\n` +
+        `ページ名： \`${title}\`\n` +
         `時間： ${timeStr}\n` +
         `ページリンク： ${link}`,
       allowedMentions: { roles: [ROLE_ID] }
@@ -100,8 +100,8 @@ async function checkWiki() {
           description: "**Bloxd攻略 Wikiで更新がありました**",
           color: 0x00bfff,
           fields: [
-            { name: "ページ名", value: title, inline: true },
-            { name: "ページリンク", value: link, inline: true },
+            { name: "ページ名", value: `\`${title}\``, inline: true },
+            { name: "ページリンク", value: `[${title}](${link})`, inline: true },
             { name: "更新時間", value: timeStr || "不明" },
           ],
           // url: link,
