@@ -32,6 +32,8 @@ app.get("/", (req, res) => {
 app.listen(PORT, () => {
   console.log(`[EXPRESS] ポート ${PORT} で起動`);
 });
+// テスト用Embed送信先
+const TEST_EMBED_CHANNEL_ID = "1456515260134723646";
 
 // ==================== RSS チェック本体 ====================
 async function checkWiki() {
@@ -44,7 +46,7 @@ async function checkWiki() {
       return;
     }
 
-    // ★ 最新1件のみ
+    // 最新1件
     const item = feed.items[0];
 
     const title = item.title;
@@ -52,34 +54,33 @@ async function checkWiki() {
     const timeStr = item.content || item.contentSnippet || "";
 
     const key = `${title}|${link}|${timeStr}`;
-
     console.log("[LATEST KEY]", key);
 
-    // ===== 初回起動：保存のみ（通知しない）=====
+    // ===== 初回起動 =====
     if (!initialized) {
       lastKey = key;
       initialized = true;
-      
+
       const channel = await client.channels.fetch(CHANNEL_ID);
       await channel.send(
         "🔄 **Bloxd攻略 Wiki Botがアップデートされました**\n" +
         "wikiの更新通知を再開します"
       );
-  
-      console.log("[INIT] 初期化完了（通知なし）");
+
+      console.log("[INIT] 初期化完了");
       return;
     }
 
-    // ===== 変化なし =====
+    // 変化なし
     if (key === lastKey) {
       console.log("[NO CHANGE]");
       return;
     }
 
-    // ===== 更新あり =====
-    const channel = await client.channels.fetch(CHANNEL_ID);
+    // ==================== 通常通知 ====================
+    const normalChannel = await client.channels.fetch(CHANNEL_ID);
 
-    await channel.send({
+    await normalChannel.send({
       content:
         `<@&${ROLE_ID}>\n` +
         `**Bloxd攻略 Wikiで更新がありました**\n` +
@@ -89,9 +90,30 @@ async function checkWiki() {
       allowedMentions: { roles: [ROLE_ID] }
     });
 
+    // ==================== テスト用 Embed ====================
+    const embedChannel = await client.channels.fetch(TEST_EMBED_CHANNEL_ID);
+
+    await embedChannel.send({
+      embeds: [
+        {
+          title: "【テスト】Wiki更新通知",
+          description: "これは **Embed表示テスト** です。",
+          color: 0x00bfff,
+          fields: [
+            { name: "ページ名", value: title },
+            { name: "更新時間", value: timeStr || "不明" }
+          ],
+          url: link,
+          footer: {
+            text: "Bloxd攻略 Wiki Bot"
+          },
+          timestamp: new Date().toISOString()
+        }
+      ]
+    });
 
     lastKey = key;
-    console.log("[SEND] 更新通知送信");
+    console.log("[SEND] 通常＋Embed 通知送信");
 
   } catch (err) {
     console.error("[RSS ERROR]", err);
