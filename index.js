@@ -96,17 +96,17 @@ async function checkWiki() {
     await embedChannel.send({
       embeds: [
         {
-          title: "Wiki更新通知【埋め込み表示テスト】",
+          title: "Wiki更新通知【埋め込み表示】",
           description: "**Bloxd攻略 Wikiで更新がありました**",
           color: 0x00bfff,
           fields: [
-            { name: "ページ名", value: title },
+            { name: "ページ名", value: title, inline: true },
+            { name: "ページリンク", value: link, inline: true },
             { name: "更新時間", value: timeStr || "不明" },
-            { name: "ページリンク", value: link }
           ],
-          url: link,
+          // url: link,
           footer: {
-            text: "Wiki更新通知 by 5kaideta_yuuto"
+            text: "Wiki更新通知 (スナップ版) by 5kaideta_yuuto"
           },
           timestamp: new Date().toISOString()
         }
