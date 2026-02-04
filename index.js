@@ -108,4 +108,4 @@ client.once("ready", async () => {
   await client.destroy(); // ← Actionsなので終わったら即終了
 });
 
-client.login(process.env.BOT_TOKEN);
+client.login(process.env.UPD_BOT_TOKEN);
