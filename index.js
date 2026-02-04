@@ -1,21 +1,13 @@
-// ==================== import ====================
 const fs = require("fs");
-const path = require("path");
 require("dotenv").config();
-
 const { Client, GatewayIntentBits } = require("discord.js");
 const Parser = require("rss-parser");
 
-// ==================== 基本設定 ====================
+// ==================== 設定 ====================
 const CHANNEL_ID = "1456599233711968387";
-const ROLE_ID = "1460203778111443130";
 const RSS_URL = "https://bloxd.wikiru.jp/?cmd=rss";
-
-// テスト用 Embed 送信先（今は未使用）
-const TEST_EMBED_CHANNEL_ID = "1456515260134723646";
-
-// last.json のパス
-const LAST_FILE = path.join(__dirname, "last.json");
+const ROLE_ID = "1460203778111443130";
+const STATE_FILE = "./state.json";
 
 // ==================== Discord ====================
 const client = new Client({
@@ -25,36 +17,30 @@ const client = new Client({
 // ==================== RSS ====================
 const parser = new Parser();
 
-// ==================== lastKey 読み込み ====================
-function loadLastKey() {
-  if (!fs.existsSync(LAST_FILE)) {
-    return null;
-  }
+// ==================== 状態ロード ====================
+let state = {
+  lastKey: null,
+  sentBootMessage: false,
+};
+
+if (fs.existsSync(STATE_FILE)) {
   try {
-    const data = JSON.parse(fs.readFileSync(LAST_FILE, "utf8"));
-    return data.lastKey ?? null;
+    state = JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
+    console.log("[STATE LOAD]", state);
   } catch (e) {
-    console.error("[LAST] 読み込み失敗", e);
-    return null;
+    console.error("[STATE LOAD ERROR]", e);
   }
 }
 
-// ==================== lastKey 保存 ====================
-function saveLastKey(key) {
-  fs.writeFileSync(
-    LAST_FILE,
-    JSON.stringify({ lastKey: key }, null, 2),
-    "utf8"
-  );
-  console.log("[LAST] 保存完了");
+// ==================== 状態保存 ====================
+function saveState() {
+  fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+  console.log("[STATE SAVE]", state);
 }
 
 // ==================== RSS チェック ====================
 async function checkWiki() {
-  console.log("========== RSS CHECK ==========");
-
-  const lastKey = loadLastKey();
-  console.log("[LAST KEY]", lastKey);
+  console.log("\n========== RSS CHECK ==========");
 
   try {
     const feed = await parser.parseURL(RSS_URL);
@@ -63,26 +49,38 @@ async function checkWiki() {
       return;
     }
 
-    // 最新1件のみ
     const item = feed.items[0];
-
     const title = item.title;
     const link = item.link;
     const timeStr = item.content || item.contentSnippet || "";
 
-    const currentKey = `${title}|${link}|${timeStr}`;
-    console.log("[CURRENT KEY]", currentKey);
+    const key = `${title}|${link}|${timeStr}`;
+    console.log("[LATEST KEY]", key);
 
-    // ===== 初回 or 変化なし =====
-    if (!lastKey || lastKey === currentKey) {
-      console.log("[NO CHANGE or INIT]");
-      saveLastKey(currentKey);
+    const channel = await client.channels.fetch(CHANNEL_ID);
+
+    // ===== Botアップデート通知（1回だけ）=====
+    if (!state.sentBootMessage) {
+      await channel.send(
+        "🔄 **Bloxd攻略 Wiki Botがアップデートされました**\n" +
+        "wikiの更新通知を再開します"
+      );
+
+      state.sentBootMessage = true;
+      state.lastKey = key; // 初回は保存だけ
+      saveState();
+
+      console.log("[BOOT MESSAGE SENT]");
       return;
     }
 
-    // ==================== 通常通知 ====================
-    const channel = await client.channels.fetch(CHANNEL_ID);
+    // ===== 変化なし =====
+    if (key === state.lastKey) {
+      console.log("[NO CHANGE]");
+      return;
+    }
 
+    // ===== 更新通知 =====
     await channel.send({
       content:
         `<@&${ROLE_ID}>\n` +
@@ -93,29 +91,10 @@ async function checkWiki() {
       allowedMentions: { roles: [ROLE_ID] },
     });
 
-    console.log("[SEND] 通知送信完了");
+    state.lastKey = key;
+    saveState();
 
-    // ==================== テスト用 Embed（試験中） ====================
-    /*
-    const embedChannel = await client.channels.fetch(TEST_EMBED_CHANNEL_ID);
-    await embedChannel.send({
-      embeds: [
-        {
-          title: "Wiki更新通知【埋め込み表示】",
-          color: 0x00bfff,
-          fields: [
-            { name: "ページ名", value: title, inline: true },
-            { name: "更新時間", value: timeStr || "不明", inline: true },
-            { name: "リンク", value: link },
-          ],
-          timestamp: new Date().toISOString(),
-        }
-      ]
-    });
-    */
-
-    // ===== 保存 =====
-    saveLastKey(currentKey);
+    console.log("[UPDATE SENT]");
 
   } catch (err) {
     console.error("[RSS ERROR]", err);
@@ -123,14 +102,10 @@ async function checkWiki() {
 }
 
 // ==================== Discord 起動 ====================
-client.once("clientReady", async () => {
+client.once("ready", async () => {
   console.log(`[DISCORD] ログイン成功: ${client.user.tag}`);
-
   await checkWiki();
-
-  // GitHub Actions なので即終了
-  client.destroy();
+  await client.destroy(); // ← Actionsなので終わったら即終了
 });
 
-// ==================== login ====================
-client.login(process.env.UPD_DISCORD_TOKEN);
+client.login(process.env.BOT_TOKEN);
