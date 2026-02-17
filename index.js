@@ -6,7 +6,7 @@ const Parser = require("rss-parser");
 // ==================== 設定 ====================
 const CHANNEL_ID = "1456599233711968387";
 const RSS_URL = "https://bloxd.wikiru.jp/?cmd=rss";
-const ROLE_ID = "1460203778111443130";
+//const ROLE_ID = "1460203778111443130";
 const STATE_FILE = "./state.json";
 
 // ==================== Discord ====================
@@ -91,7 +91,7 @@ async function checkWiki() {
         `ページリンク： ${link}`,
       allowedMentions: { roles: [ROLE_ID] },
       */
-      content: `<@&${ROLE_ID}>`, 
+      //content: `<@&${ROLE_ID}>`, 
       embeds: [
               {
                 title: "Wiki更新通知",
@@ -105,7 +105,7 @@ async function checkWiki() {
                 timestamp: new Date().toISOString()
               }
       ]
-      allowedMentions: { roles: [ROLE_ID] },
+      //allowedMentions: { roles: [ROLE_ID] },
     });
 
     state.lastKey = key;
