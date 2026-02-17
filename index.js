@@ -82,12 +82,29 @@ async function checkWiki() {
 
     // ===== 更新通知 =====
     await channel.send({
+      /*
       content:
         `<@&${ROLE_ID}>\n` +
         `**Bloxd攻略 Wikiで更新がありました**\n` +
         `ページ名： ${title}\n` +
         `時間： ${timeStr}\n` +
         `ページリンク： ${link}`,
+      allowedMentions: { roles: [ROLE_ID] },
+      */
+      content: `<@&${ROLE_ID}>`, 
+      embeds: [
+              {
+                title: "Wiki更新通知",
+                description: "[Bloxd攻略Wiki](https://bloxd.wikiru.jp)で更新がありました",
+                color: 0x00bfff,
+                fields: [
+                  { name: "ページ名", value: `\`${title}\``, inline: true },
+                  { name: "ページリンク", value: `[${title}](${link})`, inline:true},
+                  { name: "更新時間", value: `${updateTime}`, inline: false },
+                ],
+                timestamp: new Date().toISOString()
+              }
+      ]
       allowedMentions: { roles: [ROLE_ID] },
     });
 
