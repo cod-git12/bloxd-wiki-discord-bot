@@ -1,5 +1,5 @@
 const fs = require("fs");
-require("dotenv").config();
+//require("dotenv").config();
 const { Client, GatewayIntentBits } = require("discord.js");
 const Parser = require("rss-parser");
 
@@ -141,3 +141,9 @@ app.listen(PORT, () => {
 });
 
 client.login(process.env.UPD_BOT_TOKEN);
+
+client.once("ready", async () => {
+  console.log(`[DISCORD] ログイン成功: ${client.user.tag}`);
+});
+
+console.log("TOKEN:", process.env.UPD_BOT_TOKEN);
