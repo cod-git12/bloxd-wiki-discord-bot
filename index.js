@@ -155,3 +155,8 @@ client.login(process.env.UPD_BOT_TOKEN)
 client.on("error", console.error);
 client.on("warn", console.warn);
 client.on("debug", console.log);
+
+client.login(process.env.UPD_BOT_TOKEN)
+  .then(() => console.log("LOGIN SUCCESS"))
+  .catch(err => console.error("LOGIN ERROR", err));
+      
