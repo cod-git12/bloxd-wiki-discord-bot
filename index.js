@@ -100,7 +100,7 @@ async function checkWiki() {
                 fields: [
                   { name: "ページ名", value: `\`${title}\``, inline: true },
                   { name: "ページリンク", value: `[${title}](${link})`, inline:true},
-                  { name: "更新時間", value: `${updateTime}`, inline: false },
+                  { name: "更新時間", value: `${timeStr}`, inline: false },
                 ],
                 timestamp: new Date().toISOString()
               }
@@ -122,7 +122,10 @@ async function checkWiki() {
 client.once("ready", async () => {
   console.log(`[DISCORD] ログイン成功: ${client.user.tag}`);
   await checkWiki();
-  await client.destroy(); // ← Actionsなので終わったら即終了
+
+  setInterval(() => {
+    checkWiki();
+  }, 60 * 1000);
 });
 
 client.login(process.env.UPD_BOT_TOKEN);
