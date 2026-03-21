@@ -147,3 +147,11 @@ client.once("ready", async () => {
 });
 
 console.log("TOKEN:", process.env.UPD_BOT_TOKEN);
+  
+client.login(process.env.UPD_BOT_TOKEN)
+  .then(() => console.log("LOGIN SUCCESS"))
+  .catch(console.error);;
+
+client.on("error", console.error);
+client.on("warn", console.warn);
+client.on("debug", console.log);
