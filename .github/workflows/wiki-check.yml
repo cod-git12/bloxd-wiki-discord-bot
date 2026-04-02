@@ -2,8 +2,12 @@ name: Wiki RSS Check Bot
 
 on:
   schedule:
-    - cron: "*/1 * * * *"   # 1分ごと
+    - cron: "*/1 * * * *"
   workflow_dispatch:
+
+concurrency:
+  group: wiki-rss-check
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -11,24 +15,19 @@ permissions:
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
       - name: Install dependencies
         run: npm install
-
       - name: Run bot
         env:
           UPD_BOT_TOKEN: ${{ secrets.UPD_BOT_TOKEN }}
         run: node index.js
-
       - name: Commit state.json
         run: |
           git config user.name "github-actions"

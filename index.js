@@ -1,27 +1,15 @@
 const fs = require("fs");
-//require("dotenv").config();
 const { Client, GatewayIntentBits } = require("discord.js");
 const Parser = require("rss-parser");
 
-// ==================== 設定 ====================
 const CHANNEL_ID = "1456599233711968387";
 const RSS_URL = "https://bloxd.wikiru.jp/?cmd=rss";
-//const ROLE_ID = "1460203778111443130";
 const STATE_FILE = "./state.json";
 
-// ==================== Discord ====================
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds],
-});
-
-// ==================== RSS ====================
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 const parser = new Parser();
 
-// ==================== 状態ロード ====================
-let state = {
-  lastKey: null,
-  sentBootMessage: false,
-};
+let state = { lastKey: null, sentBootMessage: false };
 
 if (fs.existsSync(STATE_FILE)) {
   try {
@@ -32,16 +20,13 @@ if (fs.existsSync(STATE_FILE)) {
   }
 }
 
-// ==================== 状態保存 ====================
 function saveState() {
   fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
   console.log("[STATE SAVE]", state);
 }
 
-// ==================== RSS チェック ====================
 async function checkWiki() {
   console.log("\n========== RSS CHECK ==========");
-
   try {
     const feed = await parser.parseURL(RSS_URL);
     if (!feed.items || feed.items.length === 0) {
@@ -53,110 +38,60 @@ async function checkWiki() {
     const title = item.title;
     const link = item.link;
     const timeStr = item.content || item.contentSnippet || "";
-
     const key = `${title}|${link}|${timeStr}`;
     console.log("[LATEST KEY]", key);
 
     const channel = await client.channels.fetch(CHANNEL_ID);
 
-    // ===== Botアップデート通知（1回だけ）=====
     if (!state.sentBootMessage) {
       await channel.send(
-        "🔄 **Bloxd攻略 Wiki Botがアップデートされました**\n" +
-        "wikiの更新通知を再開します"
+        "🔄 **Bloxd攻略 Wiki Botがアップデートされました**\nwikiの更新通知を再開します"
       );
-
       state.sentBootMessage = true;
-      state.lastKey = key; // 初回は保存だけ
+      state.lastKey = key;
       saveState();
-
       console.log("[BOOT MESSAGE SENT]");
       return;
     }
 
-    // ===== 変化なし =====
     if (key === state.lastKey) {
       console.log("[NO CHANGE]");
       return;
     }
 
-    // ===== 更新通知 =====
     await channel.send({
-      /*
-      content:
-        `<@&${ROLE_ID}>\n` +
-        `**Bloxd攻略 Wikiで更新がありました**\n` +
-        `ページ名： ${title}\n` +
-        `時間： ${timeStr}\n` +
-        `ページリンク： ${link}`,
-      allowedMentions: { roles: [ROLE_ID] },
-      */
-      //content: `<@&${ROLE_ID}>`, 
-      embeds: [
-              {
-                title: "Wiki更新通知",
-                description: "[Bloxd攻略Wiki](https://bloxd.wikiru.jp)で更新がありました",
-                color: 0x00bfff,
-                fields: [
-                  { name: "ページ名", value: `\`${title}\``, inline: true },
-                  { name: "ページリンク", value: `[${title}](${link})`, inline:true},
-                  { name: "更新時間", value: `${timeStr}`, inline: false },
-                ],
-                timestamp: new Date().toISOString()
-              }
-      ]
-      //allowedMentions: { roles: [ROLE_ID] },
+      embeds: [{
+        title: "Wiki更新通知",
+        description: "[Bloxd攻略Wiki](https://bloxd.wikiru.jp)で更新がありました",
+        color: 0x00bfff,
+        fields: [
+          { name: "ページ名", value: `\`${title}\``, inline: true },
+          { name: "ページリンク", value: `[${title}](${link})`, inline: true },
+          { name: "更新時間", value: `${timeStr}`, inline: false },
+        ],
+        timestamp: new Date().toISOString()
+      }]
     });
 
     state.lastKey = key;
     saveState();
-
     console.log("[UPDATE SENT]");
-
   } catch (err) {
     console.error("[RSS ERROR]", err);
   }
 }
 
-// ==================== Discord 起動 ====================
 client.once("ready", async () => {
   console.log(`[DISCORD] ログイン成功: ${client.user.tag}`);
   await checkWiki();
-
-  setInterval(() => {
-    checkWiki();
-  }, 60 * 1000);
+  process.exit(0);
 });
-
-const express = require("express");
-const app = express();
-
-app.get("/", (req, res) => {
-  res.send("Bot is alive");
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log("Server running on port", PORT);
-});
-
-client.login(process.env.UPD_BOT_TOKEN);
-
-client.once("ready", async () => {
-  console.log(`[DISCORD] ログイン成功: ${client.user.tag}`);
-});
-
-console.log("TOKEN:", process.env.UPD_BOT_TOKEN);
-  
-client.login(process.env.UPD_BOT_TOKEN)
-  .then(() => console.log("LOGIN SUCCESS"))
-  .catch(console.error);;
 
 client.on("error", console.error);
-client.on("warn", console.warn);
-client.on("debug", console.log);
 
 client.login(process.env.UPD_BOT_TOKEN)
   .then(() => console.log("LOGIN SUCCESS"))
-  .catch(err => console.error("LOGIN ERROR", err));
-      
+  .catch(err => {
+    console.error("LOGIN ERROR", err);
+    process.exit(1);
+  });
