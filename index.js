@@ -28,7 +28,9 @@ function saveState() {
 }
 
 function getPubDate(item) {
-  const raw = item.pubDate || item.content || item.contentSnippet || "";
+  const raw = (item.pubDate || item.content || item.contentSnippet || "")
+    .trim()
+    .replace(/\bJST\b/, "+0900");
   const date = new Date(raw);
   return isNaN(date.getTime()) ? null : date;
 }
