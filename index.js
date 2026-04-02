@@ -27,6 +27,23 @@ function saveState() {
   console.log("[STATE SAVE]", state);
 }
 
+function formatJST(pubDate) {
+  const date = new Date(pubDate);
+  const days = ["日", "月", "火", "水", "木", "金", "土"];
+
+  const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+
+  const yyyy = jst.getUTCFullYear();
+  const mm   = String(jst.getUTCMonth() + 1).padStart(2, "0");
+  const dd   = String(jst.getUTCDate()).padStart(2, "0");
+  const day  = days[jst.getUTCDay()];
+  const hh   = String(jst.getUTCHours()).padStart(2, "0");
+  const min  = String(jst.getUTCMinutes()).padStart(2, "0");
+  const ss   = String(jst.getUTCSeconds()).padStart(2, "0");
+
+  return `${yyyy}/${mm}/${dd} (${day}) ${hh}:${min}:${ss} (JST - UTC+9)`;
+}
+
 async function checkWiki() {
   console.log("\n========== RSS CHECK ==========");
   try {
@@ -61,9 +78,9 @@ async function checkWiki() {
     }
 
     for (const item of newItems) {
-      const title = item.title;
-      const link = item.link;
-      const timeStr = item.content || item.contentSnippet || "";
+      const title   = item.title;
+      const link    = item.link;
+      const timeStr = formatJST(item.pubDate);
 
       await channel.send({
         embeds: [{
@@ -71,9 +88,9 @@ async function checkWiki() {
           description: "[Bloxd攻略Wiki](https://bloxd.wikiru.jp)で更新がありました",
           color: 0x00bfff,
           fields: [
-            { name: "ページ名", value: `\`${title}\``, inline: true },
-            { name: "ページリンク", value: `[${title}](${link})`, inline: true },
-            { name: "更新時間", value: `${timeStr}`, inline: false },
+            { name: "ページ名",     value: `\`${title}\``,        inline: true  },
+            { name: "ページリンク", value: `[${title}](${link})`, inline: true  },
+            { name: "更新時間",     value: timeStr,               inline: false },
           ],
           timestamp: new Date().toISOString()
         }]
