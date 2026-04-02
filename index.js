@@ -27,6 +27,12 @@ function saveState() {
   console.log("[STATE SAVE]", state);
 }
 
+function getPubDate(item) {
+  const raw = item.pubDate || item.content || item.contentSnippet || "";
+  const date = new Date(raw);
+  return isNaN(date.getTime()) ? null : date;
+}
+
 function formatJST(pubDate) {
   const date = new Date(pubDate);
   const days = ["日", "月", "火", "水", "木", "金", "土"];
@@ -60,7 +66,7 @@ async function checkWiki() {
         "🔄 **Bloxd攻略 Wiki Botがアップデートされました**\nwikiの更新通知を再開します"
       );
       state.sentBootMessage = true;
-      state.lastPubDate = new Date(feed.items[0].pubDate || Date.now()).toISOString();
+      state.lastPubDate = (getPubDate(feed.items[0]) || new Date()).toISOString();
       saveState();
       console.log("[BOOT MESSAGE SENT]");
       return;
@@ -69,7 +75,7 @@ async function checkWiki() {
     const lastDate = state.lastPubDate ? new Date(state.lastPubDate) : new Date(0);
 
     const newItems = feed.items
-      .filter(item => new Date(item.pubDate) > lastDate)
+      .filter(item => { const d = getPubDate(item); return d && d > lastDate; })
       .reverse();
 
     if (newItems.length === 0) {
@@ -80,7 +86,7 @@ async function checkWiki() {
     for (const item of newItems) {
       const title   = item.title;
       const link    = item.link;
-      const timeStr = formatJST(item.pubDate);
+      const timeStr = formatJST(getPubDate(item));
 
       await channel.send({
         embeds: [{
@@ -98,7 +104,7 @@ async function checkWiki() {
       console.log("[UPDATE SENT]", title);
     }
 
-    state.lastPubDate = new Date(newItems[newItems.length - 1].pubDate).toISOString();
+    state.lastPubDate = getPubDate(newItems[newItems.length - 1]).toISOString();
     saveState();
 
   } catch (err) {
