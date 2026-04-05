@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const fs = require("fs");
 const { Client, GatewayIntentBits } = require("discord.js");
 const Parser = require("rss-parser");
@@ -5,6 +7,7 @@ const Parser = require("rss-parser");
 const CHANNEL_ID = "1456599233711968387";
 const RSS_URL = "https://bloxd.wikiru.jp/?cmd=rss";
 const STATE_FILE = "./state.json";
+const CHECK_INTERVAL_MS = 60 * 1000;
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 const parser = new Parser();
@@ -36,10 +39,8 @@ function getPubDate(item) {
 }
 
 function formatJST(pubDate) {
-  const date = new Date(pubDate);
   const days = ["日", "月", "火", "水", "木", "金", "土"];
-
-  const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+  const jst = new Date(new Date(pubDate).getTime() + 9 * 60 * 60 * 1000);
 
   const yyyy = jst.getUTCFullYear();
   const mm   = String(jst.getUTCMonth() + 1).padStart(2, "0");
@@ -53,7 +54,7 @@ function formatJST(pubDate) {
 }
 
 async function checkWiki() {
-  console.log("\n========== RSS CHECK ==========");
+  console.log("\n========== RSS CHECK ==========", new Date().toISOString());
   try {
     const feed = await parser.parseURL(RSS_URL);
     if (!feed.items || feed.items.length === 0) {
@@ -65,7 +66,7 @@ async function checkWiki() {
 
     if (!state.sentBootMessage) {
       await channel.send(
-        "🔄 **Bloxd攻略 Wiki Botがアップデートされました**\nwikiの更新通知を再開します"
+        "🔄 **Bloxd攻略 Wiki Botが起動しました**\nwikiの更新通知を開始します"
       );
       state.sentBootMessage = true;
       state.lastPubDate = (getPubDate(feed.items[0]) || new Date()).toISOString();
@@ -77,7 +78,10 @@ async function checkWiki() {
     const lastDate = state.lastPubDate ? new Date(state.lastPubDate) : new Date(0);
 
     const newItems = feed.items
-      .filter(item => { const d = getPubDate(item); return d && d > lastDate; })
+      .filter(item => {
+        const d = getPubDate(item);
+        return d && d > lastDate;
+      })
       .reverse();
 
     if (newItems.length === 0) {
@@ -100,8 +104,8 @@ async function checkWiki() {
             { name: "ページリンク", value: `[${title}](${link})`, inline: true  },
             { name: "更新時間",     value: timeStr,               inline: false },
           ],
-          timestamp: new Date().toISOString()
-        }]
+          timestamp: new Date().toISOString(),
+        }],
       });
       console.log("[UPDATE SENT]", title);
     }
@@ -114,17 +118,29 @@ async function checkWiki() {
   }
 }
 
-client.once("clientReady", async () => {
+client.once("ready", async () => {
   console.log(`[DISCORD] ログイン成功: ${client.user.tag}`);
   await checkWiki();
-  process.exit(0);
+  setInterval(checkWiki, CHECK_INTERVAL_MS);
+  console.log(`[TIMER] ${CHECK_INTERVAL_MS / 1000}秒ごとにチェックを開始`);
 });
 
 client.on("error", console.error);
 
+async function shutdown(signal) {
+  console.log(`\n[SHUTDOWN] ${signal} を受信。終了します...`);
+  state.sentBootMessage = false;
+  saveState();
+  await client.destroy();
+  process.exit(0);
+}
+
+process.on("SIGINT",  () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+
 client.login(process.env.UPD_BOT_TOKEN)
-  .then(() => console.log("LOGIN SUCCESS"))
+  .then(() => console.log("[LOGIN] 接続中..."))
   .catch(err => {
-    console.error("LOGIN ERROR", err);
+    console.error("[LOGIN ERROR]", err);
     process.exit(1);
   });
